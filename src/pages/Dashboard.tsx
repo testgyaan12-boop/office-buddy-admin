@@ -1,77 +1,78 @@
-import { useEffect, useState } from 'react';
-import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { api, errMsg } from '../api';
-import StatCard, { fmtBytes, fmtINR } from '../components/StatCard';
+import { Database, FileText, IndianRupee, Lock, Receipt, Server, Sparkles, Users } from 'lucide-react';
+import { useAuth } from '../auth';
+import { useAdminStats } from '../hooks/useAdminStats';
+import DashboardHeader from '../components/DashboardHeader';
+import StatCard, { StatSkeleton, fmtBytes, fmtINR } from '../components/StatCard';
+import SubscriptionChart, { type PlanSlice } from '../components/SubscriptionChart';
+import UserGrowthChart from '../components/UserGrowthChart';
 
-interface Stats {
-  usersTotal: number;
-  admins: number;
-  members: number;
-  newUsers30d: number;
-  usersByMonth: { month: string; count: number }[];
-  subscriptionsByPlan: { plan: string; count: number }[];
-  revenuePaise: number;
-  invoices: number;
-  documents: number;
-  companies: number;
-  reminders: number;
-  storageUsedBytes: number;
-  storageAllocatedBytes: number;
-  lockedAccounts: number;
+function planSlices(plans: { plan: string; count: number }[]): PlanSlice[] {
+  const buckets: Record<string, number> = { 'Free Plan': 0, 'Pro Plan': 0, 'Business Plan': 0 };
+  for (const p of plans) {
+    const code = (p.plan || '').toUpperCase();
+    if (code.includes('YEARLY')) buckets['Business Plan'] += p.count;
+    else if (code.includes('MONTHLY') || code.includes('PRO')) buckets['Pro Plan'] += p.count;
+    else buckets['Free Plan'] += p.count;
+  }
+  return [
+    { name: 'Free Plan', value: buckets['Free Plan'], color: '#2563eb' },
+    { name: 'Pro Plan', value: buckets['Pro Plan'], color: '#7c3aed' },
+    { name: 'Business Plan', value: buckets['Business Plan'], color: '#06b6d4' },
+  ];
 }
 
-const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
-
 export default function Dashboard() {
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    api.get('/admin/stats').then((r) => setStats(r.data)).catch((e) => setError(errMsg(e)));
-  }, []);
-
-  if (error) return <div className="rounded-lg bg-red-50 p-4 text-red-600">{error}</div>;
-  if (!stats) return <div className="text-slate-500">Loading analytics…</div>;
+  const { user } = useAuth();
+  const { stats, loading, error, loadedAt, reload } = useAdminStats();
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-slate-900 mb-4">Dashboard</h1>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Total Users" value={String(stats.usersTotal)} icon="👥" />
-        <StatCard label="New (30d)" value={String(stats.newUsers30d)} icon="✨" />
-        <StatCard label="Revenue" value={fmtINR(stats.revenuePaise)} icon="💰" />
-        <StatCard label="Documents" value={String(stats.documents)} icon="📄" />
-        <StatCard label="Storage Used" value={fmtBytes(stats.storageUsedBytes)} icon="💾" />
-        <StatCard label="Storage Allocated" value={fmtBytes(stats.storageAllocatedBytes)} icon="🗄️" />
-        <StatCard label="Locked Accounts" value={String(stats.lockedAccounts)} icon="🔒" />
-        <StatCard label="Invoices" value={String(stats.invoices)} icon="🧾" />
+      <DashboardHeader userName={user?.name} loadedAt={loadedAt} />
+
+      {error && (
+        <div className="mb-4 flex items-center justify-between rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-600 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+          <span>Failed to load analytics: {error}</span>
+          <button onClick={reload} className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700">
+            Retry
+          </button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 xl:grid-cols-4">
+        {loading || !stats ? (
+          Array.from({ length: 8 }).map((_, i) => <StatSkeleton key={i} />)
+        ) : (
+          <>
+            <StatCard label="Total Users" value={String(stats.usersTotal)} description="Active users in your system" icon={Users} pastel="bg-blue-100 text-blue-600 dark:bg-blue-950 dark:text-blue-400" />
+            <StatCard label="New (30D)" value={String(stats.newUsers30d)} description="New users in last 30 days" icon={Sparkles} pastel="bg-green-100 text-green-600 dark:bg-green-950 dark:text-green-400" />
+            <StatCard label="Revenue" value={fmtINR(stats.revenuePaise)} description="Total revenue (30 days)" icon={IndianRupee} pastel="bg-purple-100 text-purple-600 dark:bg-purple-950 dark:text-purple-400" />
+            <StatCard label="Documents" value={String(stats.documents)} description="Total uploaded documents" icon={FileText} pastel="bg-orange-100 text-orange-600 dark:bg-orange-950 dark:text-orange-400" />
+            <StatCard label="Storage Used" value={fmtBytes(stats.storageUsedBytes)} description={`Used of ${fmtBytes(stats.storageAllocatedBytes)}`} icon={Database} pastel="bg-purple-100 text-purple-600 dark:bg-purple-950 dark:text-purple-400" />
+            <StatCard label="Storage Allocated" value={fmtBytes(stats.storageAllocatedBytes)} description="Total allocated storage" icon={Server} pastel="bg-cyan-100 text-cyan-600 dark:bg-cyan-950 dark:text-cyan-400" />
+            <StatCard label="Locked Accounts" value={String(stats.lockedAccounts)} description="Currently locked accounts" icon={Lock} pastel="bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400" />
+            <StatCard label="Invoices" value={String(stats.invoices)} description="Total invoices" icon={Receipt} pastel="bg-indigo-100 text-indigo-600 dark:bg-indigo-950 dark:text-indigo-400" />
+          </>
+        )}
       </div>
-      <div className="grid lg:grid-cols-2 gap-4">
-        <div className="rounded-2xl bg-white p-5 shadow-sm border border-slate-100">
-          <h2 className="font-bold mb-3">User Growth</h2>
-          <ResponsiveContainer width="100%" height={240}>
-            <AreaChart data={stats.usersByMonth}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" fontSize={11} />
-              <YAxis fontSize={11} />
-              <Tooltip />
-              <Area type="monotone" dataKey="count" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.25} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="rounded-2xl bg-white p-5 shadow-sm border border-slate-100">
-          <h2 className="font-bold mb-3">Subscriptions by Plan</h2>
-          <ResponsiveContainer width="100%" height={240}>
-            <PieChart>
-              <Pie data={stats.subscriptionsByPlan} dataKey="count" nameKey="plan" outerRadius={90} label>
-                {stats.subscriptionsByPlan.map((_, i) => (
-                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:gap-5 xl:grid-cols-2">
+        {loading || !stats ? (
+          <>
+            <div className="rounded-2xl border border-line bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+              <div className="skeleton h-5 w-32 rounded" />
+              <div className="skeleton mt-4 h-[240px] rounded-xl" />
+            </div>
+            <div className="rounded-2xl border border-line bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+              <div className="skeleton h-5 w-44 rounded" />
+              <div className="skeleton mx-auto mt-4 h-[210px] w-[210px] rounded-full" />
+            </div>
+          </>
+        ) : (
+          <>
+            <UserGrowthChart data={stats.usersByMonth} totalUsers={stats.usersTotal} newUsers={stats.newUsers30d} />
+            <SubscriptionChart slices={planSlices(stats.subscriptionsByPlan)} />
+          </>
+        )}
       </div>
     </div>
   );

@@ -1,7 +1,20 @@
+import { CalendarDays, Clock } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import {
+  Briefcase,
+  Building2,
+  Calendar,
+  FileText,
+  Fingerprint,
+  Tag,
+  Star,
+  UserRound,
+  type LucideIcon,
+} from 'lucide-react';
 import { api, errMsg, type Page } from '../api';
 import { DateRangeButton, ExpandSearch } from './filterControls';
+import { fmtBytes, fmtINR } from './StatCard';
 
 export interface Field {
   key: string;
@@ -19,13 +32,50 @@ export interface Resource {
   searchable?: boolean;
   dateRange?: boolean;
   fixedParams?: Record<string, string>;
-  columns: { key: string; label: string; copy?: boolean; iconBool?: boolean }[];
+  columns: { key: string; label: string; copy?: boolean; iconBool?: boolean; currentBadge?: boolean; plan?: boolean; subtitleKey?: string; bytes?: boolean; expiry?: boolean; inr?: boolean; humanize?: boolean; datetime?: boolean; activeStatus?: boolean }[];
+  empty?: { icon: string; title: string; sub: string };
   fields: Field[];
   allowCreate?: boolean;
   allowDelete?: boolean;
   allowToggle?: boolean;
   allowView?: boolean;
   idKey?: string;
+}
+
+function Pager({ page, size, total, onPage }: { page: number; size: number; total: number; onPage: (p: number) => void }) {
+  const totalPages = Math.max(1, Math.ceil(total / size));
+  const from = total === 0 ? 0 : page * size + 1;
+  const to = Math.min(total, (page + 1) * size);
+  const nums: number[] = [];
+  const start = Math.max(0, Math.min(page - 2, totalPages - 5));
+  for (let p = start; p < Math.min(totalPages, start + 5); p++) nums.push(p);
+  const btn = 'rounded-[10px] border border-line bg-white px-3 py-2 text-sm font-medium text-slate-600 transition hover:border-brand-600 hover:text-brand-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-line disabled:hover:text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:disabled:hover:border-slate-700';
+  return (
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+      <span className="text-[13px] text-muted">
+        Showing <b className="text-ink dark:text-white">{from}–{to}</b> of <b className="text-ink dark:text-white">{total}</b>
+      </span>
+      <div className="flex items-center gap-1.5">
+        <button disabled={page <= 0} onClick={() => onPage(page - 1)} aria-label="Previous page" className={btn}>← Prev</button>
+        {nums.map((p) => (
+          <button
+            key={p}
+            onClick={() => onPage(p)}
+            aria-label={`Page ${p + 1}`}
+            aria-current={p === page ? 'page' : undefined}
+            className={`min-w-[36px] rounded-[10px] px-2.5 py-2 text-sm font-semibold transition ${
+              p === page
+                ? 'bg-brand-600 text-white shadow-[0_4px_12px_rgba(37,99,235,0.35)]'
+                : 'border border-line bg-white text-slate-600 hover:border-brand-600 hover:text-brand-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
+            }`}
+          >
+            {p + 1}
+          </button>
+        ))}
+        <button disabled={page + 1 >= totalPages} onClick={() => onPage(page + 1)} aria-label="Next page" className={btn}>Next →</button>
+      </div>
+    </div>
+  );
 }
 
 function prettyLabel(key: string): string {
@@ -49,12 +99,125 @@ function MiniToggle({ on, onChange }: { on: boolean; onChange: () => void }) {
         e.stopPropagation();
         onChange();
       }}
-      title={on ? 'Active — click to deactivate' : 'Inactive — click to activate'}
-      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${on ? 'bg-green-500' : 'bg-slate-300'}`}
+      title={on ? 'Disable company' : 'Enable company'}
+      aria-label={on ? 'Disable' : 'Enable'}
+      aria-checked={on}
+      role="switch"
+      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors duration-200 ${on ? 'bg-green-500' : 'bg-slate-300 dark:bg-slate-600'}`}
     >
-      <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${on ? 'left-[18px]' : 'left-0.5'}`} />
+      <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all duration-200 ${on ? 'left-[18px]' : 'left-0.5'}`} />
     </button>
   );
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function fmtDate(s: string): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (!m) return null;
+  const month = MONTHS[parseInt(m[2], 10) - 1];
+  if (!month) return null;
+  return `${m[3]} ${month} ${m[1]}`;
+}
+
+const AVATAR_TONES = [
+  'from-violet-500 to-blue-400',
+  'from-blue-500 to-cyan-400',
+  'from-emerald-500 to-teal-400',
+  'from-amber-500 to-orange-400',
+  'from-rose-500 to-pink-400',
+  'from-indigo-500 to-violet-400',
+];
+
+function avatarTone(label: string): string {
+  let h = 0;
+  for (let i = 0; i < label.length; i++) h = (h * 31 + label.charCodeAt(i)) >>> 0;
+  return AVATAR_TONES[h % AVATAR_TONES.length];
+}
+
+function humanizeType(v: unknown): string {
+  const s = String(v ?? '').trim();
+  if (!s) return '—';
+  return s
+    .toLowerCase()
+    .split('_')
+    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+    .join(' ');
+}
+
+function dayKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function HumanizeCell({ value }: { value: unknown }) {
+  const label = humanizeType(value);
+  if (label === '—') return <span className="text-slate-400">—</span>;
+  return (
+    <span className="inline-block rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-700 dark:bg-violet-950 dark:text-violet-300">
+      {label}
+    </span>
+  );
+}
+
+function DatetimeCell({ value }: { value: unknown }) {
+  if (value === null || value === undefined || value === '') return <span className="text-slate-400">—</span>;
+  const s = String(value);
+  const date = fmtDate(s);
+  if (!date) return <span className="text-slate-700 dark:text-slate-300">{s.slice(0, 16)}</span>;
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(s);
+  const hasTime = m !== null && !(m[4] === '00' && m[5] === '00');
+  const today = dayKey(new Date());
+  const day = s.slice(0, 10);
+  const tone =
+    day < today
+      ? 'text-red-600 dark:text-red-400'
+      : day === today
+        ? 'text-brand-600 dark:text-brand-600'
+        : 'text-slate-600 dark:text-slate-300';
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+      <CalendarDays size={13} className={`shrink-0 ${tone}`} />
+      <span>
+        <span className={`block text-[13px] font-semibold ${tone}`}>{date}</span>
+        {hasTime && m && (
+          <span className="mt-0.5 flex items-center gap-1 text-[11px] text-muted">
+            <Clock size={11} />
+            {(() => {
+              let h = parseInt(m[4], 10);
+              const suffix = h >= 12 ? 'PM' : 'AM';
+              h = h % 12 === 0 ? 12 : h % 12;
+              return `${h}:${m[5]} ${suffix}`;
+            })()}
+          </span>
+        )}
+      </span>
+    </span>
+  );
+}
+
+function ActiveStatusCell({ active }: { active: boolean }) {
+  return active ? (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700 dark:bg-green-950 dark:text-green-400">
+      <span className="h-1.5 w-1.5 rounded-full bg-green-500" /> Active
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-500 dark:bg-slate-700 dark:text-slate-300">
+      <span className="h-1.5 w-1.5 rounded-full bg-slate-400" /> Paused
+    </span>
+  );
+}
+
+function columnIcon(key: string): LucideIcon | null {
+  const k = key.toLowerCase();
+  if (k === 'name' || k === 'title') return Building2;
+  if (k === 'role') return Briefcase;
+  if (k === 'userid' || k === 'user_id') return Fingerprint;
+  if (k.includes('date') || k.includes('created') || k.includes('updated')) return Calendar;
+  if (k === 'current') return Star;
+  if (k === 'type') return Tag;
+  if (k.includes('file')) return FileText;
+  if (k.includes('user')) return UserRound;
+  return null;
 }
 
 function cell(v: unknown): string {
@@ -66,13 +229,14 @@ function cell(v: unknown): string {
 }
 
 const PILL: Record<string, string> = {
-  ACTIVE: 'bg-green-100 text-green-700',
-  PAID: 'bg-green-100 text-green-700',
-  PENDING: 'bg-amber-100 text-amber-700',
-  SENT: 'bg-sky-100 text-sky-700',
-  SCHEDULED: 'bg-sky-100 text-sky-700',
-  FAILED: 'bg-red-100 text-red-600',
-  EXPIRED: 'bg-slate-200 text-slate-600',
+  ACTIVE: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400',
+  PAID: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400',
+  PENDING: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400',
+  SENT: 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300',
+  SCHEDULED: 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300',
+  FAILED: 'bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400',
+  EXPIRED: 'bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400',
+  CANCELLED: 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
 };
 
 function IdsCell({ row }: { row: Record<string, unknown> }) {
@@ -151,13 +315,25 @@ function BoolIcon({ value, invert = false }: { value: unknown; invert?: boolean 
   );
 }
 
+const DOT: Record<string, string> = {
+  ACTIVE: 'bg-green-500',
+  PAID: 'bg-green-500',
+  PENDING: 'bg-amber-500',
+  SENT: 'bg-sky-500',
+  SCHEDULED: 'bg-sky-500',
+  FAILED: 'bg-red-500',
+  EXPIRED: 'bg-red-500',
+  CANCELLED: 'bg-slate-400',
+};
+
 function StatusCell({ value }: { value: unknown }) {
   const s = cell(value);
   const key = s.toUpperCase();
   if (PILL[key]) {
     return (
-      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${PILL[key]}`}>
-        {key === 'ACTIVE' ? '● ' : ''}{s}
+      <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${PILL[key]}`}>
+        <span className={`h-1.5 w-1.5 rounded-full ${DOT[key] || 'bg-current'}`} />
+        {s}
       </span>
     );
   }
@@ -170,16 +346,117 @@ function StatusCell({ value }: { value: unknown }) {
     );
   }
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
-    return <span className="whitespace-nowrap text-slate-600">{s.slice(0, 16).replace('T', ' ')}</span>;
+    const formatted = fmtDate(s);
+    return <span className="whitespace-nowrap text-slate-600 dark:text-slate-300">{formatted ?? s.slice(0, 10)}</span>;
   }
-  return <span className="text-slate-700">{s}</span>;
+  return <span className="text-slate-700 dark:text-slate-300">{s}</span>;
 }
 
-export default function CrudPage({ resource }: { resource: Resource }) {
+export function daysUntil(iso: string): number | null {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return null;
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  return Math.ceil((t - startOfToday) / 86400000);
+}
+
+function PlanCell({ code, sub }: { code: unknown; sub: unknown }) {
+  const label = cell(code);
+  const subLabel = cell(sub);
+  return (
+    <div className="flex items-center gap-2.5">
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${avatarTone(label)} text-xs font-bold text-white`}>
+        {label[0]?.toUpperCase() || '?'}
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-bold text-ink dark:text-white" title={String(code ?? '')}>{label}</span>
+        {subLabel !== '—' && <span className="block truncate text-xs text-muted" title={String(sub ?? '')}>{subLabel}</span>}
+      </span>
+    </div>
+  );
+}
+
+function BytesCell({ value }: { value: unknown }) {
+  const n = typeof value === 'number' ? value : parseInt(String(value ?? ''), 10);
+  if (!Number.isFinite(n)) return <span className="text-slate-400">—</span>;
+  return (
+    <span>
+      <span className="block text-sm font-bold text-ink dark:text-white">{fmtBytes(n)}</span>
+      <span className="block text-[11px] text-muted">of allocated storage</span>
+    </span>
+  );
+}
+
+function MoneyCell({ value }: { value: unknown }) {
+  const n = typeof value === 'number' ? value : parseInt(String(value ?? ''), 10);
+  if (!Number.isFinite(n)) return <span className="text-slate-400">—</span>;
+  return <span className="text-sm font-bold text-ink dark:text-white">{fmtINR(n)}</span>;
+}
+
+function ExpiryCell({ value }: { value: unknown }) {
+  if (value === null || value === undefined || value === '') return <span className="text-slate-400">—</span>;
+  const s = String(value);
+  const date = fmtDate(s) ?? s.slice(0, 10);
+  const days = daysUntil(s);
+  if (days === null) return <span className="whitespace-nowrap text-slate-600 dark:text-slate-300">{date}</span>;
+  if (days < 0) {
+    return (
+      <span>
+        <span className="block whitespace-nowrap text-sm font-bold text-red-600 dark:text-red-400">{date}</span>
+        <span className="block text-[11px] font-semibold text-red-500">Expired</span>
+      </span>
+    );
+  }
+  if (days <= 30) {
+    return (
+      <span>
+        <span className="block whitespace-nowrap text-sm font-bold text-ink dark:text-white">{date}</span>
+        <span className="block text-[11px] font-semibold text-amber-600 dark:text-amber-400">Expires in {days} day{days === 1 ? '' : 's'}</span>
+      </span>
+    );
+  }
+  return (
+    <span>
+      <span className="block whitespace-nowrap text-sm font-bold text-ink dark:text-white">{date}</span>
+      <span className="block text-[11px] text-muted">Expires in {days} days</span>
+    </span>
+  );
+}
+
+function CurrentBadge({ value }: { value: unknown }) {
+  const on = value === true;
+  return on ? (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700 dark:bg-green-950 dark:text-green-400">
+      <span className="h-1.5 w-1.5 rounded-full bg-green-500" /> Current
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+      <span className="h-1.5 w-1.5 rounded-full border border-slate-400" /> Not Current
+    </span>
+  );
+}
+
+export default function CrudPage({
+  resource,
+  extQ,
+  onExtQ,
+  extFrom,
+  extTo,
+  onExtDates,
+  hideFilters,
+}: {
+  resource: Resource;
+  extQ?: string;
+  onExtQ?: (v: string) => void;
+  extFrom?: string;
+  extTo?: string;
+  onExtDates?: (f: string, t: string) => void;
+  hideFilters?: boolean;
+}) {
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
-  const [q, setQ] = useState('');
+  const [iq, setIq] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [editing, setEditing] = useState<{ row: Record<string, unknown> | null } | null>(null);
@@ -193,9 +470,34 @@ export default function CrudPage({ resource }: { resource: Resource }) {
   const [toggling, setToggling] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const userId = searchParams.get('userId') || '';
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
+  const [ifrom, setIfrom] = useState('');
+  const [ito, setIto] = useState('');
   const size = 20;
+
+  const q = extQ !== undefined ? extQ : iq;
+  const from = extFrom !== undefined ? extFrom : ifrom;
+  const to = extTo !== undefined ? extTo : ito;
+  const setQ = (v: string) => {
+    setPage(0);
+    if (onExtQ) onExtQ(v);
+    else setIq(v);
+  };
+  const setDates = (f: string, t: string) => {
+    setPage(0);
+    if (onExtDates) onExtDates(f, t);
+    else {
+      setIfrom(f);
+      setIto(t);
+    }
+  };
+  const clearFilters = () => {
+    setQ('');
+    setDates('', '');
+  };
+
+  useEffect(() => {
+    setPage(0);
+  }, [q, from, to]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -309,35 +611,23 @@ export default function CrudPage({ resource }: { resource: Resource }) {
           )}
         </div>
         <div className="flex items-center gap-2">
-          {resource.searchable && (
+          {!hideFilters && resource.searchable && (
             <ExpandSearch
               value={q}
               placeholder="Search…"
-              onChange={(v) => {
-                setPage(0);
-                setQ(v);
-              }}
+              onChange={(v) => setQ(v)}
             />
           )}
-          {resource.dateRange && (
+          {!hideFilters && resource.dateRange && (
             <DateRangeButton
               from={from}
               to={to}
-              onApply={(f, t) => {
-                setPage(0);
-                setFrom(f);
-                setTo(t);
-              }}
+              onApply={(f, t) => setDates(f, t)}
             />
           )}
-          {(q || from || to) && (resource.searchable || resource.dateRange) && (
+          {!hideFilters && (q || from || to) && (resource.searchable || resource.dateRange) && (
             <button
-              onClick={() => {
-                setQ('');
-                setFrom('');
-                setTo('');
-                setPage(0);
-              }}
+              onClick={() => clearFilters()}
               title="Clear all filters"
               className="inline-flex h-10 items-center rounded-xl bg-slate-100 px-3 text-xs font-semibold text-slate-500 hover:bg-red-100 hover:text-red-600"
             >
@@ -351,15 +641,36 @@ export default function CrudPage({ resource }: { resource: Resource }) {
           )}
         </div>
       </div>
-      {error && <div className="mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>}
-      <div className="rounded-2xl bg-white shadow-md border border-slate-100 overflow-x-auto">
-        <table className="min-w-full text-sm">
+      {error && (
+        <div className="mb-4 flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950/40">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-300">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-bold text-slate-900 dark:text-white">Unable to load {resource.title.toLowerCase()}</span>
+            <span className="block truncate text-[13px] text-red-600 dark:text-red-300">{error}</span>
+          </span>
+          <button onClick={() => load()} className="shrink-0 rounded-[10px] bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700">
+            Try Again
+          </button>
+        </div>
+      )}
+      <div className="rounded-2xl bg-white shadow-[0_1px_3px_rgba(15,31,61,0.06)] border border-line overflow-x-auto dark:bg-slate-900 dark:border-slate-800">
+        <table className="min-w-[920px] w-full text-sm">
           <thead>
-            <tr className="bg-gradient-to-r from-violet-600 to-blue-500 text-left text-xs uppercase tracking-wide text-white">
-              {resource.columns.map((c, ci) => (
-                <th key={c.key} className={`px-5 py-3.5 font-semibold ${ci === 0 ? 'rounded-tl-2xl' : ''}`}>{c.label}</th>
-              ))}
-              <th className="px-5 py-3.5 font-semibold rounded-tr-2xl text-right">Actions</th>
+            <tr className="bg-slate-50/80 text-left dark:bg-slate-800/60">
+              {resource.columns.map((c, ci) => {
+                const Icon = columnIcon(c.key);
+                return (
+                  <th key={c.key} className={`px-5 py-3 text-[11px] font-bold uppercase tracking-wider text-muted ${ci === 0 ? 'rounded-tl-2xl' : ''}`}>
+                    <span className="inline-flex items-center gap-1.5">
+                      {Icon && <Icon size={13} strokeWidth={2.2} />}
+                      {c.label}
+                    </span>
+                  </th>
+                );
+              })}
+              <th className="px-5 py-3 text-[11px] font-bold uppercase tracking-wider text-muted rounded-tr-2xl text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -377,11 +688,11 @@ export default function CrudPage({ resource }: { resource: Resource }) {
                 const editable = resource.fields.length > 0;
                 const active = row.isActive === 1 || row.isActive === true;
                 return (
-                <tr key={String(row[resource.idKey || 'id'] ?? i)} className="border-t border-slate-100 transition hover:bg-violet-50/50">
+                <tr key={String(row[resource.idKey || 'id'] ?? i)} className="border-t border-slate-100 transition-colors duration-200 last:border-0 hover:bg-[#F5F8FD] dark:border-slate-800 dark:hover:bg-slate-800/60">
                   {resource.columns.map((c, ci) => (
                     <td
                       key={c.key}
-                      className={`px-5 py-3 ${ci === 0 && editable ? 'cursor-pointer' : ''}`}
+                      className={`px-5 py-4 align-middle ${ci === 0 && editable ? 'cursor-pointer' : ''}`}
                       title={ci === 0 && editable ? 'Click to edit' : undefined}
                       onClick={ci === 0 && editable ? () => openEdit(row) : undefined}
                     >
@@ -391,26 +702,44 @@ export default function CrudPage({ resource }: { resource: Resource }) {
                         <BoolIcon value={row[c.key]} invert={c.key === 'isDeleted'} />
                       ) : c.copy ? (
                         <CopyCell value={row[c.key]} />
+                      ) : c.currentBadge ? (
+                        <CurrentBadge value={row[c.key]} />
+                      ) : c.humanize ? (
+                        <HumanizeCell value={row[c.key]} />
+                      ) : c.datetime ? (
+                        <DatetimeCell value={row[c.key]} />
+                      ) : c.activeStatus ? (
+                        <ActiveStatusCell active={row.isActive === 1 || row.isActive === true} />
+                      ) : c.plan ? (
+                        <PlanCell code={row[c.key]} sub={c.subtitleKey ? row[c.subtitleKey] : undefined} />
+                      ) : c.bytes ? (
+                        <BytesCell value={row[c.key]} />
+                      ) : c.expiry ? (
+                        <ExpiryCell value={row[c.key]} />
+                      ) : c.inr ? (
+                        <MoneyCell value={row[c.key]} />
                       ) : ci === 0 ? (
                         <div className="flex items-center gap-2.5">
-                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-blue-400 text-xs font-bold text-white">
+                          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${avatarTone(cell(row[c.key]))} text-xs font-bold text-white`}>
                             {cell(row[c.key])[0]?.toUpperCase() || '?'}
                           </span>
-                          <span className="block max-w-[220px] truncate font-semibold text-slate-900" title={String(row[c.key] ?? '')}>{cell(row[c.key])}</span>
+                          <span className="block max-w-[220px] truncate text-sm font-bold text-ink dark:text-white" title={String(row[c.key] ?? '')}>{cell(row[c.key])}</span>
                         </div>
+                      ) : (c.key === 'role' || c.key === 'name' || c.key === 'title') ? (
+                        <span className="block max-w-[220px] truncate font-medium text-slate-800 dark:text-slate-100" title={String(row[c.key] ?? '')}>{cell(row[c.key])}</span>
                       ) : (
                         <StatusCell value={row[c.key]} />
                       )}
                     </td>
                   ))}
-                  <td className="whitespace-nowrap px-5 py-3 text-right">
+                  <td className="whitespace-nowrap px-5 py-4 text-right align-middle">
                     {resource.fields.length > 0 && (
-                      <button onClick={() => openEdit(row)} title="Edit record" className="mr-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-violet-50 text-base text-violet-600 transition hover:bg-violet-100 hover:shadow">
+                      <button onClick={() => openEdit(row)} title="Edit record" aria-label="Edit record" className="mr-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-violet-50 text-base text-violet-600 transition-all duration-200 hover:bg-violet-100 hover:shadow dark:bg-violet-950 dark:text-violet-300">
                         ✏️
                       </button>
                     )}
                     {resource.allowView && (
-                      <button onClick={() => setViewRow(row)} title="View details" className="mr-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-sky-50 text-base text-sky-700 transition hover:bg-sky-100 hover:shadow">
+                      <button onClick={() => setViewRow(row)} title="View details" aria-label="View details" className="mr-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-sky-50 text-base text-sky-700 transition-all duration-200 hover:bg-sky-100 hover:shadow dark:bg-sky-950 dark:text-sky-300">
                         👁️
                       </button>
                     )}
@@ -420,7 +749,7 @@ export default function CrudPage({ resource }: { resource: Resource }) {
                       </span>
                     )}
                     {resource.allowDelete && (
-                      <button onClick={() => setDeleteRow(row)} title="Delete record" className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-red-50 text-base text-red-600 transition hover:bg-red-100 hover:shadow">
+                      <button onClick={() => setDeleteRow(row)} title="Delete record" aria-label="Delete record" className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-red-50 text-base text-red-600 transition-all duration-200 hover:bg-red-100 hover:shadow dark:bg-red-950 dark:text-red-400">
                         🗑️
                       </button>
                     )}
@@ -431,9 +760,12 @@ export default function CrudPage({ resource }: { resource: Resource }) {
             )}
             {!loading && rows.length === 0 && (
               <tr>
-                <td colSpan={resource.columns.length + 1} className="px-4 py-10 text-center">
-                  <div className="text-4xl">📭</div>
-                  <div className="mt-2 text-slate-400">No records found</div>
+                <td colSpan={resource.columns.length + 1} className="px-4 py-12 text-center">
+                  <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-3xl dark:bg-slate-800">
+                    {resource.empty?.icon || '📭'}
+                  </div>
+                  <div className="text-sm font-semibold text-slate-700 dark:text-slate-200">{resource.empty?.title || 'No records found'}</div>
+                  <div className="mt-1 text-xs text-slate-400">{resource.empty?.sub || 'Records will appear here once available.'}</div>
                 </td>
               </tr>
             )}
@@ -441,11 +773,7 @@ export default function CrudPage({ resource }: { resource: Resource }) {
         </table>
       </div>
       {resource.paged && (
-        <div className="mt-3 flex items-center gap-3 text-sm text-slate-600">
-          <button disabled={page <= 0} onClick={() => setPage(page - 1)} className="rounded-lg border px-3 py-1 disabled:opacity-40">Prev</button>
-          <span>Page {page + 1} • {total} total</span>
-          <button disabled={(page + 1) * size >= total} onClick={() => setPage(page + 1)} className="rounded-lg border px-3 py-1 disabled:opacity-40">Next</button>
-        </div>
+        <Pager page={page} size={size} total={total} onPage={setPage} />
       )}
       {editing !== null && (
         <EditDialog

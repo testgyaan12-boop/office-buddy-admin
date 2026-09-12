@@ -1,20 +1,21 @@
 import { useSearchParams } from 'react-router-dom';
 import CrudPage from '../components/CrudPage';
-import { adConfigsRes, adProvidersRes, lookupsRes, securitySettingsRes } from '../resources';
+import { adConfigsRes, adProvidersRes, customAdsRes, lookupsRes, securitySettingsRes } from '../resources';
 
-type Tab = 'config' | 'ads' | 'providers' | 'lookups';
+type Tab = 'config' | 'ads' | 'providers' | 'lookups' | 'customads';
 
 const tabs: { key: Tab; label: string; icon: string }[] = [
   { key: 'config', label: 'My Config', icon: '⚙️' },
   { key: 'ads', label: 'Ads', icon: '📢' },
   { key: 'providers', label: 'Ad Providers', icon: '🏷️' },
   { key: 'lookups', label: 'Lookups', icon: '📚' },
+  { key: 'customads', label: 'Custom Ad', icon: '📣' },
 ];
 
 export default function Config() {
   const [searchParams, setSearchParams] = useSearchParams();
   const raw = searchParams.get('tab');
-  const tab: Tab = raw === 'ads' || raw === 'providers' || raw === 'lookups' ? raw : 'config';
+  const tab: Tab = raw === 'ads' || raw === 'providers' || raw === 'lookups' || raw === 'customads' ? raw : 'config';
 
   const setTab = (t: Tab) => {
     const next = new URLSearchParams(searchParams);
@@ -42,6 +43,7 @@ export default function Config() {
       {tab === 'ads' && <CrudPage key="ads" resource={adConfigsRes} />}
       {tab === 'providers' && <CrudPage key="providers" resource={adProvidersRes} />}
       {tab === 'lookups' && <CrudPage key="lookups" resource={lookupsRes} />}
+      {tab === 'customads' && <CrudPage key="customads" resource={customAdsRes} />}
     </div>
   );
 }

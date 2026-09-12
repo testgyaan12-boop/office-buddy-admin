@@ -5,6 +5,8 @@ export const documentsRes: Resource = {
   base: '/admin/documents',
   paged: true,
   hideTitle: true,
+  searchable: true,
+  empty: { icon: '📄', title: 'No documents found', sub: 'Documents added to the workspace will appear here.' },
   columns: [
     { key: 'title', label: 'Title' },
     { key: 'type', label: 'Type' },
@@ -26,13 +28,14 @@ export const companiesRes: Resource = {
   hideTitle: true,
   searchable: true,
   dateRange: true,
+  empty: { icon: '🏢', title: 'No companies found', sub: 'Companies added to your workspace will appear here.' },
   columns: [
     { key: 'name', label: 'Name' },
     { key: 'role', label: 'Role' },
     { key: 'userId', label: 'User ID', copy: true },
     { key: 'startDate', label: 'Start' },
     { key: 'endDate', label: 'End' },
-    { key: 'current', label: 'Current' },
+    { key: 'current', label: 'Current', currentBadge: true },
   ],
   fields: [],
   allowDelete: true,
@@ -46,13 +49,14 @@ export const subscriptionsRes: Resource = {
   hideTitle: true,
   searchable: true,
   columns: [
-    { key: 'planCode', label: 'Plan' },
+    { key: 'planCode', label: 'Plan', plan: true, subtitleKey: 'planName' },
     { key: 'status', label: 'Status' },
-    { key: 'userId', label: 'User ID' },
-    { key: 'storageLimitBytes', label: 'Storage' },
-    { key: 'expiryDate', label: 'Expiry' },
+    { key: 'userId', label: 'User ID', copy: true },
+    { key: 'storageLimitBytes', label: 'Storage', bytes: true },
+    { key: 'expiryDate', label: 'Expiry', expiry: true },
   ],
   fields: [],
+  empty: { icon: '💳', title: 'No subscriptions found', sub: 'Your subscription information will appear here.' },
 };
 
 export const invoicesRes: Resource = {
@@ -64,11 +68,12 @@ export const invoicesRes: Resource = {
   columns: [
     { key: 'invoiceNo', label: 'Invoice No' },
     { key: 'planName', label: 'Plan' },
-    { key: 'amountPaise', label: 'Amount (paise)' },
+    { key: 'amount', label: 'Amount', inr: true },
     { key: 'status', label: 'Status' },
     { key: 'issuedAt', label: 'Issued' },
   ],
   fields: [],
+  empty: { icon: '🧾', title: 'No invoices found', sub: 'Issued invoices will appear here.' },
 };
 
 export const plansRes: Resource = {
@@ -81,8 +86,8 @@ export const plansRes: Resource = {
     { key: 'planName', label: 'Name' },
     { key: 'planCode', label: 'Code' },
     { key: 'period', label: 'Period' },
-    { key: 'allocatedBytes', label: 'Bytes' },
-    { key: 'amountPaise', label: 'Amount (paise)' },
+    { key: 'allocatedBytes', label: 'Storage', bytes: true },
+    { key: 'amount', label: 'Amount', inr: true },
     { key: 'isActive', label: 'Active' },
   ],
   fields: [
@@ -91,7 +96,7 @@ export const plansRes: Resource = {
     { key: 'period', label: 'Period' },
     { key: 'allocatedBytes', label: 'Bytes', type: 'number' },
     { key: 'allocatedUnit', label: 'Unit' },
-    { key: 'amountPaise', label: 'Amount (paise)', type: 'number' },
+    { key: 'amount', label: 'Amount', type: 'number' },
     { key: 'currency', label: 'Currency' },
     { key: 'isActive', label: 'Active (1/0)', type: 'select', options: ['1', '0'] },
     { key: 'isDeleted', label: 'Deleted (1/0)', type: 'select', options: ['0', '1'] },
@@ -101,6 +106,7 @@ export const plansRes: Resource = {
   allowDelete: true,
   allowToggle: true,
   idKey: 'id',
+  empty: { icon: '📦', title: 'No plans found', sub: 'Create your first plan to get started.' },
 };
 
 export const goalsRes: Resource = {
@@ -181,6 +187,24 @@ export const customAdsRes: Resource = {
   idKey: 'id',
 };
 
+export const packDownloadsRes: Resource = {
+  title: 'Pack Downloads',
+  base: '/admin/pack-downloads',
+  paged: true,
+  hideTitle: true,
+  allowDelete: true,
+  empty: { icon: '📦', title: 'No downloads yet', sub: 'Pack downloads will appear here once users download.' },
+  columns: [
+    { key: 'userId', label: 'User ID', copy: true },
+    { key: 'packId', label: 'Pack ID', copy: true },
+    { key: 'downloadCount', label: 'Count' },
+    { key: 'active', label: 'Active' },
+    { key: 'downloadedAt', label: 'Downloaded At' },
+    { key: 'createdAt', label: 'Created At' },
+  ],
+  fields: [],
+};
+
 export const remindersRes: Resource = {
   title: 'Reminders',
   base: '/admin/reminders',
@@ -188,13 +212,15 @@ export const remindersRes: Resource = {
   hideTitle: true,
   columns: [
     { key: 'title', label: 'Title' },
-    { key: 'type', label: 'Type' },
-    { key: 'userId', label: 'User ID' },
-    { key: 'remindAt', label: 'Remind At' },
+    { key: 'type', label: 'Type', humanize: true },
+    { key: 'userId', label: 'User', copy: true },
+    { key: 'remindAt', label: 'Remind At', datetime: true },
+    { key: 'isActive', label: 'Status', activeStatus: true },
   ],
   fields: [],
   allowDelete: true,
   allowToggle: true,
+  empty: { icon: '🔔', title: 'No reminders yet', sub: 'Create your first reminder to stay organized and on schedule.' },
 };
 
 export const lookupsRes: Resource = {

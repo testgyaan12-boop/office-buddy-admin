@@ -13,8 +13,11 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (r) => r,
   (err) => {
-    if (err.response?.status === 401 || err.response?.status === 403) {
+    // 401 = session invalid/expired -> logout. 403 = logged in but not allowed
+    // (e.g. non-admin) -> stay logged in, show the error instead.
+    if (err.response?.status === 401) {
       localStorage.removeItem('admin_token');
+      localStorage.removeItem('admin_refresh');
       localStorage.removeItem('admin_user');
       if (!window.location.pathname.includes('/login')) {
         window.location.href = '/login';

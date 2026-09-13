@@ -242,37 +242,156 @@ export default function PlansTab({ refreshKey, onRefresh }: { refreshKey: number
       )}
 
       {editing !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 dark:bg-slate-900" onClick={(e) => e.stopPropagation()}>
-            <h2 className="mb-4 text-lg font-bold text-slate-900 dark:text-white">{editing.row ? 'Edit Plan' : 'New Plan'}</h2>
-            {plansRes.fields.map((f) => (
-              <label key={f.key} className="mb-3 block text-sm">
-                <span className="mb-1 block text-slate-600 dark:text-slate-300">{f.label}</span>
-                {f.type === 'select' ? (
-                  <select
-                    value={form[f.key] ?? ''}
-                    disabled={!!f.readOnly && !!editing.row}
-                    onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
-                  >
-                    {(f.options || []).map((o) => (
-                      <option key={o} value={o}>{o}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type={f.type === 'number' ? 'number' : 'text'}
-                    value={form[f.key] ?? ''}
-                    disabled={!!f.readOnly && !!editing.row}
-                    onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setEditing(null)}>
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-2xl dark:bg-slate-900" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-800">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">{editing.row ? 'Edit Plan' : 'New Plan'}</h2>
+                <p className="text-xs text-slate-400">{editing.row ? `Editing ${editing.row.planName}` : 'Create a new subscription plan'}</p>
+              </div>
+              <button onClick={() => setEditing(null)} className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-red-100 hover:text-red-600 dark:bg-slate-800">✕</button>
+            </div>
+
+            <div className="px-6 py-5 space-y-5">
+              {/* Basic Info */}
+              <div>
+                <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-violet-500" /> Basic Info
+                </div>
+                {/* Name + Period in one row */}
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  {plansRes.fields.filter(f => f.key === 'planName').map((f) => (
+                    <label key={f.key} className="block text-sm">
+                      <span className="mb-1 block font-medium text-slate-600 dark:text-slate-300">{f.label}</span>
+                      <input
+                        type="text"
+                        value={form[f.key] ?? ''}
+                        onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                        placeholder={f.label}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-ink transition placeholder:text-slate-400 focus:border-violet-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                      />
+                    </label>
+                  ))}
+                  {plansRes.fields.filter(f => f.key === 'period').map((f) => (
+                    <label key={f.key} className="block text-sm">
+                      <span className="mb-1 block font-medium text-slate-600 dark:text-slate-300">{f.label}</span>
+                      <input
+                        type="text"
+                        value={form[f.key] ?? ''}
+                        onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                        placeholder={f.label}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-ink transition placeholder:text-slate-400 focus:border-violet-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                      />
+                    </label>
+                  ))}
+                </div>
+                {/* Plan Code full width */}
+                {plansRes.fields.filter(f => f.key === 'planCode').map((f) => (
+                  <label key={f.key} className="block text-sm">
+                    <span className="mb-1 block font-medium text-slate-600 dark:text-slate-300">{f.label}</span>
+                    <input
+                      type="text"
+                      value={form[f.key] ?? ''}
+                      disabled={!!f.readOnly && !!editing.row}
+                      onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                      placeholder={f.label}
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-ink transition placeholder:text-slate-400 focus:border-violet-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    />
+                  </label>
+                ))}
+              </div>
+
+              {/* Storage */}
+              <div>
+                <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-blue-500" /> Storage
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {plansRes.fields.filter(f => ['allocatedBytes','allocatedUnit'].includes(f.key)).map((f) => (
+                    <label key={f.key} className="block text-sm">
+                      <span className="mb-1 block font-medium text-slate-600 dark:text-slate-300">{f.label}</span>
+                      <input
+                        type={f.type === 'number' ? 'number' : 'text'}
+                        value={form[f.key] ?? ''}
+                        onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                        placeholder={f.label}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-ink transition placeholder:text-slate-400 focus:border-violet-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Pricing */}
+              <div>
+                <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-green-500" /> Pricing
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {plansRes.fields.filter(f => ['amount','currency'].includes(f.key)).map((f) => (
+                    <label key={f.key} className="block text-sm">
+                      <span className="mb-1 block font-medium text-slate-600 dark:text-slate-300">{f.label}</span>
+                      <input
+                        type={f.type === 'number' ? 'number' : 'text'}
+                        value={form[f.key] ?? ''}
+                        onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                        placeholder={f.label}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-ink transition placeholder:text-slate-400 focus:border-violet-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                      />
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Status */}
+              <div>
+                <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> Status
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {plansRes.fields.filter(f => ['isActive','isDeleted'].includes(f.key)).map((f) => (
+                    <label key={f.key} className="block text-sm">
+                      <span className="mb-1 block font-medium text-slate-600 dark:text-slate-300">{f.label}</span>
+                      <select
+                        value={form[f.key] ?? ''}
+                        onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                        className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-ink transition focus:border-violet-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                      >
+                        {(f.options || []).map((o) => (
+                          <option key={o} value={o}>{o === '1' ? 'Yes' : 'No'}</option>
+                        ))}
+                      </select>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Remarks */}
+              <div>
+                <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-slate-400" /> Remarks
+                </div>
+                <label className="block text-sm">
+                  <textarea
+                    value={form['remarks'] ?? ''}
+                    onChange={(e) => setForm({ ...form, remarks: e.target.value })}
+                    rows={2}
+                    placeholder="Optional notes..."
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-ink transition placeholder:text-slate-400 focus:border-violet-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white resize-none"
                   />
-                )}
-              </label>
-            ))}
-            <div className="mt-4 flex justify-end gap-2">
-              <button onClick={() => setEditing(null)} className="rounded-lg border px-4 py-2 text-sm dark:border-slate-700 dark:text-slate-300">Cancel</button>
-              <button onClick={() => setConfirmSave(true)} className="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white">Save</button>
+                </label>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-6 py-4 dark:border-slate-800">
+              <button onClick={() => setEditing(null)} className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300">
+                Cancel
+              </button>
+              <button onClick={() => setConfirmSave(true)} className="rounded-xl bg-gradient-to-r from-violet-600 to-blue-500 px-5 py-2.5 text-sm font-semibold text-white shadow transition hover:shadow-md">
+                {editing.row ? 'Save Changes' : 'Create Plan'}
+              </button>
             </div>
           </div>
         </div>

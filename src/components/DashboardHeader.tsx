@@ -1,6 +1,6 @@
-import { CalendarDays } from 'lucide-react';
+import { CalendarDays, RefreshCw } from 'lucide-react';
 
-export default function DashboardHeader({ userName, loadedAt }: { userName?: string; loadedAt: Date | null }) {
+export default function DashboardHeader({ userName, loadedAt, onRefresh }: { userName?: string; loadedAt: Date | null; onRefresh?: () => void }) {
   const date = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   const time = (loadedAt || new Date()).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 
@@ -20,6 +20,15 @@ export default function DashboardHeader({ userName, loadedAt }: { userName?: str
           <span className="block text-sm font-bold text-ink dark:text-white">{date}</span>
           <span className="block text-xs text-muted">Last updated • {time}</span>
         </span>
+        {onRefresh && (
+          <button
+            onClick={onRefresh}
+            title="Refresh data"
+            className="ml-1 flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-violet-100 hover:text-violet-600 dark:bg-slate-800 dark:text-slate-400"
+          >
+            <RefreshCw size={14} />
+          </button>
+        )}
       </div>
     </div>
   );

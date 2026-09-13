@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, ChevronDown, LogOut, Menu, Moon, PanelLeft, Search, Sun, UserRound } from 'lucide-react';
+import { Bell, ChevronDown, LogOut, Menu, Moon, PanelLeft, Sun, UserRound } from 'lucide-react';
 import { useTheme } from './Layout';
 import { useAuth } from '../auth';
 import { useAdminStats } from '../hooks/useAdminStats';
@@ -16,28 +16,10 @@ export default function TopHeader({
 }) {
   const [bellOpen, setBellOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [q, setQ] = useState('');
-  const searchRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { dark, toggle } = useTheme();
   const { user } = useAuth();
   const { stats } = useAdminStats();
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        searchRef.current?.focus();
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, []);
-
-  const submitSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    navigate(q.trim() ? `/users?q=${encodeURIComponent(q.trim())}` : '/users');
-  };
 
   const alerts: { title: string; sub: string; tone: string }[] = [];
   if ((stats?.lockedAccounts ?? 0) > 0) {
@@ -73,20 +55,6 @@ export default function TopHeader({
       <button onClick={onToggleCollapse} title="Toggle sidebar" aria-label="Toggle sidebar" className="hidden rounded-lg p-2 text-slate-500 hover:bg-slate-100 lg:block dark:text-slate-300 dark:hover:bg-slate-800">
         <PanelLeft size={20} />
       </button>
-      <form onSubmit={submitSearch} className="relative hidden max-w-md flex-1 md:block" role="search">
-        <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input
-          ref={searchRef}
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search anything..."
-          aria-label="Search anything"
-          className="w-full rounded-xl border border-line bg-canvas py-2.5 pl-10 pr-20 text-sm text-ink outline-none placeholder:text-slate-400 focus:border-brand-600 focus:ring-2 focus:ring-brand-600/15 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-        />
-        <kbd className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md border border-line bg-white px-1.5 py-0.5 text-[11px] font-medium text-slate-400 dark:border-slate-700 dark:bg-slate-900">
-          Ctrl + K
-        </kbd>
-      </form>
       <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
         <div className="relative">
           <button

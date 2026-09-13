@@ -32,7 +32,7 @@ export interface Resource {
   searchable?: boolean;
   dateRange?: boolean;
   fixedParams?: Record<string, string>;
-  columns: { key: string; label: string; copy?: boolean; iconBool?: boolean; currentBadge?: boolean; plan?: boolean; subtitleKey?: string; bytes?: boolean; expiry?: boolean; inr?: boolean; humanize?: boolean; datetime?: boolean; activeStatus?: boolean }[];
+  columns: { key: string; label: string; copy?: boolean; iconBool?: boolean; currentBadge?: boolean; plan?: boolean; subtitleKey?: string; subtitle?: boolean; bytes?: boolean; expiry?: boolean; inr?: boolean; humanize?: boolean; datetime?: boolean; activeStatus?: boolean }[];
   empty?: { icon: string; title: string; sub: string };
   fields: Field[];
   allowCreate?: boolean;
@@ -444,6 +444,8 @@ export default function CrudPage({
   extTo,
   onExtDates,
   hideFilters,
+  clientFilter,
+  onView,
 }: {
   resource: Resource;
   extQ?: string;
@@ -452,6 +454,8 @@ export default function CrudPage({
   extTo?: string;
   onExtDates?: (f: string, t: string) => void;
   hideFilters?: boolean;
+  clientFilter?: (row: Record<string, unknown>) => boolean;
+  onView?: (row: Record<string, unknown>) => void;
 }) {
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [total, setTotal] = useState(0);
@@ -511,11 +515,11 @@ export default function CrudPage({
       const r = await api.get(resource.base, { params });
       if (resource.paged && r.data && typeof r.data === 'object' && 'content' in r.data) {
         const p = r.data as Page<Record<string, unknown>>;
-        setRows(p.content);
+        setRows(clientFilter ? p.content.filter(clientFilter) : p.content);
         setTotal(p.totalElements);
       } else {
         const list = Array.isArray(r.data) ? r.data : [];
-        setRows(list);
+        setRows(clientFilter ? list.filter(clientFilter) : list);
         setTotal(list.length);
       }
     } catch (e) {
@@ -523,7 +527,7 @@ export default function CrudPage({
     } finally {
       setLoading(false);
     }
-  }, [resource, page, q, from, to, userId]);
+  }, [resource, page, q, from, to, userId, clientFilter]);
 
   useEffect(() => {
     load();
@@ -718,6 +722,11 @@ export default function CrudPage({
                         <ExpiryCell value={row[c.key]} />
                       ) : c.inr ? (
                         <MoneyCell value={row[c.key]} />
+                      ) : c.subtitle ? (
+                        <div className="flex flex-col">
+                          <span className="block max-w-[220px] truncate text-sm font-bold text-ink dark:text-white" title={String(row[c.key] ?? '')}>{cell(row[c.key])}</span>
+                          {c.subtitleKey && <span className="block max-w-[220px] truncate text-[11px] text-muted" title={String(row[c.subtitleKey] ?? '')}>{cell(row[c.subtitleKey])}</span>}
+                        </div>
                       ) : ci === 0 ? (
                         <div className="flex items-center gap-2.5">
                           <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${avatarTone(cell(row[c.key]))} text-xs font-bold text-white`}>
@@ -739,7 +748,7 @@ export default function CrudPage({
                       </button>
                     )}
                     {resource.allowView && (
-                      <button onClick={() => setViewRow(row)} title="View details" aria-label="View details" className="mr-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-sky-50 text-base text-sky-700 transition-all duration-200 hover:bg-sky-100 hover:shadow dark:bg-sky-950 dark:text-sky-300">
+                      <button onClick={() => onView ? onView(row) : setViewRow(row)} title="View details" aria-label="View details" className="mr-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-sky-50 text-base text-sky-700 transition-all duration-200 hover:bg-sky-100 hover:shadow dark:bg-sky-950 dark:text-sky-300">
                         👁️
                       </button>
                     )}
@@ -877,38 +886,84 @@ function EditDialog({
   onSave: () => void;
   isNew: boolean;
 }) {
+  const half = Math.ceil(fields.length / 2);
+  const left = fields.slice(0, half);
+  const right = fields.slice(half);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 max-h-[85vh] overflow-y-auto">
-        <h2 className="text-lg font-bold mb-4">{title}</h2>
-        {fields.map((f) => (
-          <label key={f.key} className="mb-3 block text-sm">
-            <span className="mb-1 block text-slate-600">{f.label}</span>
-            {f.type === 'select' ? (
-              <select
-                value={form[f.key] ?? ''}
-                disabled={f.readOnly && !isNew}
-                onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2"
-              >
-                {(f.options || []).map((o) => (
-                  <option key={o} value={o}>{o}</option>
-                ))}
-              </select>
-            ) : (
-              <input
-                type={f.type === 'number' ? 'number' : 'text'}
-                value={form[f.key] ?? ''}
-                disabled={f.readOnly && !isNew}
-                onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2"
-              />
-            )}
-          </label>
-        ))}
-        <div className="mt-4 flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-lg border px-4 py-2 text-sm">Cancel</button>
-          <button onClick={onSave} className="rounded-lg bg-violet-600 px-4 py-2 text-sm text-white">Save</button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-2xl dark:bg-slate-900"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-800">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">{title}</h2>
+            <p className="text-xs text-slate-400">{isNew ? 'Fill in the details' : 'Update the record below'}</p>
+          </div>
+          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-red-100 hover:text-red-600 dark:bg-slate-800">✕</button>
+        </div>
+
+        <div className="px-6 py-5">
+          <div className="grid grid-cols-2 gap-4">
+            {left.map((f) => (
+              <label key={f.key} className="block text-sm">
+                <span className="mb-1 block font-medium text-slate-600 dark:text-slate-300">{f.label}</span>
+                {f.type === 'select' ? (
+                  <select
+                    value={form[f.key] ?? ''}
+                    disabled={f.readOnly && !isNew}
+                    onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-ink transition placeholder:text-slate-400 focus:border-violet-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  >
+                    {(f.options || []).map((o) => (
+                      <option key={o} value={o}>{o}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type={f.type === 'number' ? 'number' : 'text'}
+                    value={form[f.key] ?? ''}
+                    disabled={f.readOnly && !isNew}
+                    onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                    placeholder={f.label}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-ink transition placeholder:text-slate-400 focus:border-violet-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  />
+                )}
+              </label>
+            ))}
+            {right.map((f) => (
+              <label key={f.key} className="block text-sm">
+                <span className="mb-1 block font-medium text-slate-600 dark:text-slate-300">{f.label}</span>
+                {f.type === 'select' ? (
+                  <select
+                    value={form[f.key] ?? ''}
+                    disabled={f.readOnly && !isNew}
+                    onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-ink transition placeholder:text-slate-400 focus:border-violet-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  >
+                    {(f.options || []).map((o) => (
+                      <option key={o} value={o}>{o}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type={f.type === 'number' ? 'number' : 'text'}
+                    value={form[f.key] ?? ''}
+                    disabled={f.readOnly && !isNew}
+                    onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
+                    placeholder={f.label}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-ink transition placeholder:text-slate-400 focus:border-violet-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-violet-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                  />
+                )}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-6 py-4 dark:border-slate-800">
+          <button onClick={onClose} className="rounded-xl border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300">Cancel</button>
+          <button onClick={onSave} className="rounded-xl bg-gradient-to-r from-violet-600 to-blue-500 px-5 py-2.5 text-sm font-semibold text-white shadow transition hover:shadow-md">Save</button>
         </div>
       </div>
     </div>

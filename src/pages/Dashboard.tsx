@@ -5,6 +5,7 @@ import DashboardHeader from '../components/DashboardHeader';
 import StatCard, { StatSkeleton, fmtBytes, fmtINR } from '../components/StatCard';
 import SubscriptionChart, { type PlanSlice } from '../components/SubscriptionChart';
 import UserGrowthChart from '../components/UserGrowthChart';
+import RecentLogins from '../components/RecentLogins';
 
 function planSlices(plans: { plan: string; count: number }[]): PlanSlice[] {
   const buckets: Record<string, number> = { 'Free Plan': 0, 'Pro Plan': 0, 'Business Plan': 0 };
@@ -27,7 +28,7 @@ export default function Dashboard() {
 
   return (
     <div>
-      <DashboardHeader userName={user?.name} loadedAt={loadedAt} />
+      <DashboardHeader userName={user?.name} loadedAt={loadedAt} onRefresh={reload} />
 
       {error && (
         <div className="mb-4 flex items-center justify-between rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-600 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
@@ -73,6 +74,10 @@ export default function Dashboard() {
             <SubscriptionChart slices={planSlices(stats.subscriptionsByPlan)} />
           </>
         )}
+      </div>
+
+      <div className="mt-4">
+        <RecentLogins />
       </div>
     </div>
   );

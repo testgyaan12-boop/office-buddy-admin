@@ -16,6 +16,7 @@ import StatCard, { StatSkeleton, fmtBytes, fmtINR } from '../components/StatCard
 import { api } from '../api';
 import { invoicesRes, paymentConfigsRes, plansRes, subscriptionsRes } from '../resources';
 import PlansTab from './PlansTab';
+import InvoicesTab from './InvoicesTab';
 
 type Tab = 'subscriptions' | 'invoices' | 'plans' | 'payments';
 
@@ -296,25 +297,7 @@ export default function Subscription() {
         </>
       )}
 
-      {tab === 'invoices' && (
-        <>
-          <SectionToolbar
-            title="Invoices"
-            sub="Issued invoices and payment receipts"
-            query={queries.invoices}
-            placeholder="Search invoices…"
-            onQuery={(v) => setQ('invoices', v)}
-            onRefresh={() => setRefreshKey((k) => k + 1)}
-          />
-          <CrudPage
-            key={`invoices-${refreshKey}`}
-            resource={invoicesRes}
-            hideFilters
-            extQ={queries.invoices}
-            onExtQ={(v) => setQ('invoices', v)}
-          />
-        </>
-      )}
+      {tab === 'invoices' && <InvoicesTab refreshKey={refreshKey} onRefresh={() => setRefreshKey((k) => k + 1)} />}
 
       {tab === 'plans' && <PlansTab refreshKey={refreshKey} onRefresh={() => setRefreshKey((k) => k + 1)} />}
 

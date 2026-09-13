@@ -10,6 +10,7 @@ import Profile from './pages/Profile';
 import Reminders from './pages/Reminders';
 import Subscription from './pages/Subscription';
 import Users from './pages/Users';
+import Chat from './pages/Chat';
 import {
   customAdsRes,
   documentsRes,
@@ -35,6 +36,7 @@ export default function App() {
           <Route path="/documents" element={<Guard><CrudPage resource={documentsRes} /></Guard>} />
           <Route path="/companies" element={<Guard><Companies /></Guard>} />
           <Route path="/subscriptions" element={<Guard><Subscription /></Guard>} />
+          <Route path="/chat" element={<Guard><Chat /></Guard>} />
           <Route path="/reminders" element={<Guard><Reminders /></Guard>} />
           <Route path="/custom-ads" element={<Guard><CrudPage resource={customAdsRes} /></Guard>} />
           <Route path="/config" element={<Guard><Config /></Guard>} />
